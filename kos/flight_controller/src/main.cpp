@@ -315,8 +315,60 @@ int main(void) {
         logEntry("Arm was not allowed. Waiting for another arm request from autopilot", ENTITY_NAME, LogLevel::LOG_WARNING);
     };
 
-    //If we get here, the drone is able to arm and start the mission
+//If we get here, the drone is able to arm and start the mission
     //The flight is need to be controlled from now on
+
+    // ── ЗАДАНИЕ 2: мониторинг коридора безопасности ──────────────────
+    // Получаем стартовые координаты в момент взлёта
+    int32_t startLat = 0, startLon = 0, startAlt = 0;
+    while (!getCoords(startLat, startLon, startAlt)) {
+        logEntry("Failed to get start coordinates. Trying again in 1s",
+                 ENTITY_NAME, LogLevel::LOG_WARNING);
+        sleep(1);
+    }
+    snprintf(logBuffer, 256,
+             "Mission started. Start coords: lat=%d lon=%d alt=%d",
+             startLat, startLon, startAlt);
+    logEntry(logBuffer, ENTITY_NAME, LogLevel::LOG_INFO);
+    logEntry("Corridor monitor started. Limit: 10 m",
+             ENTITY_NAME, LogLevel::LOG_INFO);
+
+    // Основной цикл контроля полёта — проверяем коридор раз в секунду
+    while (true) {
+        sleep(1);
+
+        int32_t curLat = 0, curLon = 0, curAlt = 0;
+        if (!getCoords(curLat, curLon, curAlt)) {
+            logEntry("Failed to get current coordinates",
+                     ENTITY_NAME, LogLevel::LOG_WARNING);
+            continue;
+        }
+
+        // Считаем расстояние от стартовой точки в метрах
+        double dlatM = (double)(curLat - startLat) / 1e7 * 111320.0;
+        double dlonM = (double)(curLon - startLon) / 1e7 * 111320.0
+                       * cos((double)startLat / 1e7 * M_PI / 180.0);
+        double dist  = sqrt(dlatM * dlatM + dlonM * dlonM);
+
+        snprintf(logBuffer, 256,
+                 "Corridor check: dist=%.1f m (limit=10 m)", dist);
+        logEntry(logBuffer, ENTITY_NAME, LogLevel::LOG_INFO);
+
+        // Если вышли за 10 метров — сажаем дрон
+        if (dist > 10.0) {
+            logEntry("WARNING: drone out of corridor! Initiating landing.",
+                     ENTITY_NAME, LogLevel::LOG_WARNING);
+            while (!pauseFlight()) {
+                logEntry("Failed to pause flight. Trying again in 1s",
+                         ENTITY_NAME, LogLevel::LOG_WARNING);
+                sleep(1);
+            }
+            logEntry("Landing initiated successfully.",
+                     ENTITY_NAME, LogLevel::LOG_INFO);
+            break; // выходим из цикла мониторинга
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────
 
     while (true)
         sleep(1000);
