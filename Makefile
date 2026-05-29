@@ -120,3 +120,7 @@ pal-tests: docker-image
 	docker-compose -f tests/pal-tests-docker-compose.yml down
 
 all-tests: e2e-tests unit-tests unit-orvd-tests pal-tests
+
+e2e-wind: docker-image
+	docker-compose -f tests/e2e-wind-docker-compose.yml up --abort-on-container-exit --exit-code-from mavproxy
+	docker-compose -f tests/e2e-wind-docker-compose.yml down
