@@ -370,8 +370,24 @@ int main(void) {
     }
     // ─────────────────────────────────────────────────────────────────
 
+//If we get here, the drone is able to arm and start the mission
+    //The flight is need to be controlled from now on
+
+    // ЗАДАНИЕ: Запрет сброса груза
+    // Согласно API: setCargoLock(0) отключает питание мотора замка груза.
+    // Вызываем один раз при старте и больше никогда не вызываем setCargoLock(1).
+    logEntry("Security policy: cargo drop is FORBIDDEN", ENTITY_NAME, LogLevel::LOG_WARNING);
+    while (!setCargoLock(0)) {
+        logEntry("Failed to lock cargo. Trying again in 1s", ENTITY_NAME, LogLevel::LOG_WARNING);
+        sleep(1);
+    }
+    logEntry("Cargo locked successfully. Drop is disabled.", ENTITY_NAME, LogLevel::LOG_INFO);
+
     while (true)
         sleep(1000);
+
+    return EXIT_SUCCESS;
+}
 
     return EXIT_SUCCESS;
 }
