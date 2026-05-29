@@ -383,8 +383,49 @@ int main(void) {
     }
     logEntry("Cargo locked successfully. Drop is disabled.", ENTITY_NAME, LogLevel::LOG_INFO);
 
-    while (true)
-        sleep(1000);
+//If we get here, the drone is able to arm and start the mission
+    //The flight is need to be controlled from now on
+
+    // ЗАДАНИЕ: Контроль скорости — не допускать разгона квадрокоптера
+    // Согласно API:
+    //   getEstimatedSpeed(speed) — текущая скорость в м/с
+    //   changeSpeed(speed)       — установить скорость в см/с
+    // Максимально допустимая скорость: 5 м/с (500 см/с)
+    #define MAX_SPEED_MS   5.0f   // лимит в м/с
+    #define MAX_SPEED_CMS  500    // лимит в см/с (для changeSpeed)
+
+    logEntry("Speed monitor started. Max speed: 5 m/s", ENTITY_NAME, LogLevel::LOG_INFO);
+
+    while (true) {
+        sleep(1);
+
+        float currentSpeed = 0.0f;
+        if (!getEstimatedSpeed(currentSpeed)) {
+            logEntry("Failed to get estimated speed", ENTITY_NAME, LogLevel::LOG_WARNING);
+            continue;
+        }
+
+        // Логируем текущую скорость
+        snprintf(logBuffer, 256, "Current speed: %.2f m/s (limit: %.1f m/s)",
+                 currentSpeed, MAX_SPEED_MS);
+        logEntry(logBuffer, ENTITY_NAME, LogLevel::LOG_INFO);
+
+        // Если скорость превышена — принудительно снижаем до лимита
+        if (currentSpeed > MAX_SPEED_MS) {
+            snprintf(logBuffer, 256,
+                     "OVERSPEED! %.2f m/s > %.1f m/s. Reducing speed.",
+                     currentSpeed, MAX_SPEED_MS);
+            logEntry(logBuffer, ENTITY_NAME, LogLevel::LOG_WARNING);
+
+            while (!changeSpeed(MAX_SPEED_CMS)) {
+                logEntry("Failed to change speed. Trying again in 1s",
+                         ENTITY_NAME, LogLevel::LOG_WARNING);
+                sleep(1);
+            }
+            logEntry("Speed reduced to limit successfully.",
+                     ENTITY_NAME, LogLevel::LOG_INFO);
+        }
+    }
 
     return EXIT_SUCCESS;
 }
